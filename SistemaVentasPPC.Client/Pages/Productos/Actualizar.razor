@@ -1,0 +1,171 @@
+﻿@page "/Update/{Id:int}"
+
+@inject IClientService<Productos> productosService
+@inject NavigationManager NavigationManager
+@inject NotificationService NotificationService
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Agregar productos</PageTitle>
+<EditForm Model="productos" OnValidSubmit="GuardarProducto">
+
+    <div class="container">
+        <DataAnnotationsValidator />
+        <RadzenNotification />
+        <div class="card shadow-lg" style="background-image: linear-gradient(to top, #30cfd0 0%, #330867 100%);">
+            <div class="card-header">
+                <h3 class="fw-bold text-center text-white bg-opacity-0">Registro de productos</h3>
+            </div>
+            <div class="card-body bg-white" style=" margin-left:5px; margin-right:5px;">
+                <div class="row justify-content-center">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="fw-bold">Código:</label>
+                            <div class="input-group">
+                                <InputText style="margin-right: 10px;" class="form-control" @bind-Value="productos.Codigo" readonly></InputText>
+                            </div>
+                            <ValidationMessage For="@(() => productos.Codigo)" class="text-danger" />
+                        </div>
+                        <div class="form-group">
+                            <label for="nombreProducto" class="fw-bold">Nombre:</label>
+                            <InputText @bind-Value="productos.Nombre" class="form-control" />
+                            <ValidationMessage For="@(() => productos.Nombre)" class="text-danger" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="fw-bold">Costo:</label>
+                            <input type="number" style="margin-right: 10px;" class="form-control" @bind="CostoAux" @bind:event="oninput"></input>
+                            <ValidationMessage For="@(() => productos.Costo)" class="text-danger" />
+                        </div>
+                        <div class="form-group">
+                            <label for="itbisProducto" class="fw-bold">ITBIS:</label>
+                            <InputSelect @bind-Value="productos.ITBIS" class="form-select">
+                                <option value="0">0%</option>
+                                <option value="18">18%</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => productos.ITBIS)" class="text-danger" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="precioProducto" class="fw-bold">Precio:</label>
+                            <label class="form-control" readonly>@productos.Precio.ToString("N2")</label>
+                            <ValidationMessage For="@(() => productos.Precio)" class="text-danger" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="cantidadProducto" class="fw-bold">Cantidad:</label>
+                            <InputNumber @bind-Value="productos.Cantidad" class="form-control" min="0" />
+                            <ValidationMessage For="@(() => productos.Cantidad)" class="text-danger" />
+                        </div>
+                        <div class="form-group">
+                            <label for="descuentoProducto" class="fw-bold">Descuento:</label>
+                            <InputNumber @bind-Value="productos.Descuento" class="form-control" min="0" />
+                            <ValidationMessage For="@(() => productos.Descuento)" class="text-danger" />
+                        </div>
+
+
+                        <div class="form-group">
+                            <label for="gananciaProducto" class="fw-bold">Ganancia:</label>
+                            <select @bind="GananciaAux" @bind:event="onchange" class="form-select">
+                                <option value="20">20%</option>
+                                <option value="21">21%</option>
+                                <option value="22">22%</option>
+                                <option value="23">23%</option>
+                                <option value="24">24%</option>
+                                <option value="25">25%</option>
+                                <option value="26">26%</option>
+                                <option value="27">27%</option>
+                                <option value="28">28%</option>
+                                <option value="29">29%</option>
+                                <option value="30">30%</option>
+                                <option value="30">30%</option>
+                            </select>
+                            <ValidationMessage For="@(() => productos.Ganancia)" class="text-danger" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer justify-content-center d-flex bg-opacity-0">
+                <button type="submit" class="btn btn-success bi bi-floppy">Guardar</button>
+                <button type="button" class="btn btn-danger" @onclick="Cancelar">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    public Productos productos { get; set; } = new Productos();
+
+    public int GananciaAux
+    {
+        get => productos.Ganancia;
+        set
+        {
+            productos.Ganancia = value;
+            Console.WriteLine(productos.Ganancia);
+            CalcularPrecio();
+        }
+    }
+    public double CostoAux
+    {
+        get => productos.Costo;
+        set
+        {
+            productos.Costo = value;
+            Console.WriteLine(productos.Ganancia);
+            CalcularPrecio();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id > 0)
+        {
+            productos = await productosService.GetObject(Id);
+        }
+    }
+
+    public async Task GuardarProducto()
+    {
+        productos.EsDisponible = true;
+        var buscado = await productosService.UpdateObject(productos);
+        if (buscado)
+        {
+
+            var mensaje = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Guardado",
+                    Detail = "Producto modificado con éxito",
+                    Duration = 5000
+                };
+            NotificationService.Notify(mensaje);
+        }
+        else
+        {
+            var mensaje = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "No Guardado",
+                    Detail = "Producto No modificado",
+                    Duration = 5000
+                };
+            NotificationService.Notify(mensaje);
+        }
+        await Task.Delay(500);
+        NavigationManager.NavigateTo("Productos");
+
+    }
+
+    public void CalcularPrecio()
+    {
+        productos.Precio = productos.Costo + (productos.Costo * (productos.Ganancia / 100.0f));
+    }
+
+    private void Cancelar()
+    {
+        NavigationManager.NavigateTo("Productos");
+    }
+}

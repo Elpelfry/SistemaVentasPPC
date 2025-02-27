@@ -1,0 +1,443 @@
+﻿@page "/"
+
+<PageTitle>Movimientos</PageTitle>
+@inject IClientService<Facturaciones> facturacionesService
+@inject IClientService<Configuraciones> configuracionesService
+@inject IClientService<MetodoPagos> metodosPagosService
+@inject IClientService<Productos> productosService
+@inject NotificationService notificationService
+@inject NavigationManager navigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveWebAssembly
+
+<RadzenNotification />
+<PageTitle>Ventas</PageTitle>
+
+<div class="container">
+    <div class="card shadow-lg" style="background-image: linear-gradient(to top, #30cfd0 0%, #330867 100%);">
+        <h3 class="fw-bold text-center text-white" style="margin-top: 20px;">Ventas</h3>
+        <div class="card-body">
+            <div class="container">
+                <div style="margin-left: 4px;">
+                    <div class="row">
+                        <label class="text-white fw-bold">Filtrar por:</label>
+                        <div class="col-2">
+                            <InputSelect @bind-Value="Opcion" class="form-select">
+                                <option value="1">Venta Id</option>
+                                <option value="2">Nombre del Cliente</option>
+                                <option value="3">Total</option>
+                                <option value="4">Todo</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-auto">
+                            @switch (Opcion)
+                            {
+                                case 1:
+                                    <div class="input-group justify-content-end">
+                                        <InputNumber @bind-Value="facturacion.FacturacionId" class="form-control" min="0"></InputNumber>
+                                        <div class="input-group-append">
+                                            <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                        </div>
+                                    </div>
+                                    break;
+                                case 2:
+                                    <div class="input-group justify-content-end">
+                                        <InputText @bind-Value="facturacion.NombreCliente" class="form-control"></InputText>
+                                        <div class="input-group-append">
+                                            <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                        </div>
+                                    </div>
+                                    break;
+                                case 3:
+                                    <div class="input-group justify-content-end">
+                                        <InputNumber @bind-Value="facturacion.Total" class="form-control"></InputNumber>
+                                        <div class="input-group-append">
+                                            <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                        </div>
+                                    </div>
+                                    break;
+                                case 4:
+                                    <div class="input-group justify-content-end">
+                                        <div class="input-group-append">
+                                            <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                        </div>
+                                    </div>
+                                    break;
+                            }
+                        </div>
+                        <div class="col col-auto">
+                            <div class="input-group justify-content-end" >
+                                <InputDate @bind-Value="FechaInicio" class="form-control"></InputDate>
+                                <InputDate @bind-Value="FechaFin" class="form-control"></InputDate>
+                                <div class="input-group-append">
+                                    <div class="input-group-append">
+                                        <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style=" margin-left:5px; margin-right:5px;">
+            <table class="table table-light table-hover table-striped table-bordered text-center">
+                <thead>
+                    <tr class="fw-bold">
+                        <th scope="col">Cliente</th>
+                        <th scope="col">Fecha</th>
+                        <th scope="col">Sub-Total</th>
+                        <th scope="col">ITBIS</th>
+                        <th scope="col">Total</th>
+                        <th scope="col">Estado</th>
+                        <th scope="col">Ver</th>
+                        <th scope="col">Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in facturaciones)
+                    {
+                        <tr>
+                            <td>@item.NombreCliente</td>
+                            <td>@item.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td>@item.SubTotal.ToString("N2")</td>
+                            <td>@item.ITBS.ToString("N2")</td>
+                            <td>@item.Total.ToString("N2")</td>
+                            @if (item.Eliminada)
+                            {
+                                <td class="text-danger">Eliminada</td>
+                            }
+                            else
+                            {
+                                <td class="text-success">Completada</td>
+                            }
+
+                            <td>
+                                <button type="button" style="background: transparent; border: none;" @onclick=@(() => VerFactura(item.FacturacionId))>
+                                    <img style="height: 38px;" src="/factura.svg" />
+                                </button>
+                            </td>
+                            @if (!item.Eliminada)
+                            {
+                                <td>
+                                    <button type="button" class="btn btn-danger bi bi-trash-fill" @onclick="() => Eliminar(item.FacturacionId)"></button>
+                                </td>
+                            }
+                            else
+                            {
+                                <td></td>
+                            }
+
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (factura)
+{
+    <div class="modal d-block" style="position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);">
+        <RadzenNotification />
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background:#01204E ">
+                    <h5 class="modal-title fw-bold text-white"> Factura</h5>
+                    <div class="justify-content-end d-flex">
+                        <button type="button" class="btn bg-muted text-white" style="background: #ffe085" @onclick="ImprimirFactura">
+                            <img style="width: 15px; height: 15px;" src="/printer.svg" />
+                        </button>
+                        <button type="button" class="btn bg-danger text-white" @onclick="CerrarModal">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="factura" class="modal-body" style="height: 40rem; overflow-y: auto; overflow-x: hidden;">
+
+                    <div class="position-relative modalContenedor">
+                        @if (facturacion.Eliminada)
+                        {
+                            <div class="letreroEliminar position-absolute top-50 start-50 translate-middle" style="transform: translate(-50%, -50%); z-index: 9999;">
+                                <img src="/returned.png">
+                            </div>
+                        }
+
+                        <div class="row d-flex align-items-center justify-content-center">
+                            <div id="logoEmpresa" class="text-center">
+                                <img style="width: 150px; height: 120px; border-radius: 10%;" src="@getLogo()" />
+                            </div>
+                            <h4 class="fw-bold fs-4 text-center" style="margin-top: -8px; justify-content: center; text-align: center;">@configuracion.NombreEmpresa</h4>
+
+                            <div class="row" style="margin-top: -12px; justify-content: center; text-align: center;">
+                                <div class="col-6 text-start">
+                                    <label class="fw-bold"> <i class="fas fa-phone"></i> Telf.: <span class="fw-normal">@configuracion.Telefono</span></label>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <label class="fw-bold"> <i class="fas fa-building"></i> RNC: <span class="fw-normal">@configuracion.NFC</span></label>
+                                </div>
+                            </div>
+
+                            <div id="direccionEmpresa" class="fw-bold text-center">
+                                <label> <i class="fas fa-map-marker"></i> Dirc.: <span class="fw-normal">@configuracion.Direccion</span></label>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h5 class="fw-bold text-center titular" style="font-size: 14px; font-weight: bold;">DATOS DE LA VENTA</h5>
+                        <hr>
+
+                        <div class="row">
+                            <div class="col text-start">
+                                <label class="fw-bold" style="font-size: 12px;">Fecha:<span class="fw-normal"> @facturacion.Fecha.ToString("dd/MM/yyyy")</span></label>
+                            </div>
+                            <div id="fechaFactura" class="col text-end">
+                                <label class="fw-bold" style="font-size: 12px;">Hora: <span class="fw-normal"> @facturacion.Fecha.ToString("h:mm tt")</span></label>
+                            </div>
+                            <div class="text-start">
+                                <label class="fw-bold" style="font-size: 12px;">N°: <span class="fw-normal"> @facturacion.FacturacionId</span></label>
+                            </div>
+                            <div class="text-start">
+                                @if (true)
+                                {
+                                    var met = metodosPagos.FirstOrDefault(x => x.MetodoPagoId == facturacion.MetodoPagoId);
+                                    <label class="fw-bold" style="font-size: 12px;">M&eacute;todo Pago: <span class="fw-normal">@met!.Nombre</span></label>
+                                }
+                            </div>
+                            <div class="text-start">
+                                <label class="fw-bold" style="font-size: 12px;">Cliente: <span class="fw-normal">@facturacion.NombreCliente</span></label>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h5 class="fw-bold text-center titular" style="font-size: 14px; font-weight: bold;">PRODUCTOS</h5>
+                        <hr>
+
+                        <div class="row mb-4">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Descripci&oacute;n</th>
+                                        <th class="text-end derecha">Itbis</th>
+                                        <th class="text-end derecha">Importe</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in facturacion.FacturacionDetalle)
+                                    {
+                                        var pro = productos.FirstOrDefault(x => x.ProductoId == item.ProductoId);
+                                        double subtotal = item.Cantidad * pro!.Precio;
+                                        double total = subtotal - (subtotal * (pro.Descuento / 100.0f));
+                                        double itbisFinal = total * (pro.ITBIS / 100.0f);
+                                        var precio = (pro!.Precio - (pro!.Precio * (pro.Descuento / 100.0f)));
+                                        <tr>
+                                            <td>
+                                                <div class="row">
+                                                    <span>* @pro.Nombre</span>
+                                                </div>
+                                                <div class="row mb-3">
+                                                    <span>(@item.Cantidad x @precio.ToString("N2"))</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-end derecha">@itbisFinal.ToString("N2")</td>
+                                            <td class="text-end derecha">@total.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="margin-right: 10px">
+                            <div class="row mb-5" style="text-align: end">
+                                <div>
+                                    <label class="fw-bold">SubTotal:</label>
+                                    <span>RD$ @facturacion.SubTotal.ToString("N2")</span>
+                                </div>
+                                <div>
+                                    <label class="fw-bold">ITBIS:</label>
+                                    <span>RD$ @facturacion.ITBS.ToString("N2")</span>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="fw-bold">Total:</label>
+                                    <span>RD$ @facturacion.Total.ToString("N2")</span>
+                                </div>
+
+                                <div class="datoInferior">
+                                    <div>
+                                        <label class="fw-bold">Recibido:</label>
+                                        <span>RD$ @facturacion.Recibido.ToString("N2")</span>
+                                    </div>
+                                    @if (facturacion.CondicionId == 2)
+                                    {
+                                        double deuda = facturacion.Total - facturacion.Recibido;
+                                        <div>
+                                            <label class="fw-bold">Pendiente:</label>
+                                            <span>RD$ @deuda.ToString("N2")</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div>
+                                            <label class="fw-bold">Cambio:</label>
+                                            <span>RD$ @facturacion.Devuelta.ToString("N2")</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row text-center centrado datoInferior">
+                            <label class="fw-bold">@configuracion.Nota</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (eliminar)
+{
+    <div class="modal d-block" style="position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);">
+        <div class="modal-dialog modal-dialog-centered">
+            <RadzenNotification />
+            <div class="modal-content">
+                <div class="modal-header text-center" style="background:#01204E;">
+                    <h5 class="modal-title fw-bold text-white">Eliminar</h5>
+                </div>
+                <div class="modal-body text-center">
+                    <h6>¿ESTAS SEGURO QUE DESEAS ELIMINAR LA VENTA?</h6>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-danger fw-bold text-light" @onclick="EliminarVenta">Eliminar</button>
+                    <button type="button" class="btn btn-secondary fw-bold text-light" @onclick="CerrarModal">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    public int Opcion { get; set; } = 1;
+    public Facturaciones facturacion { get; set; } = new Facturaciones();
+    public List<Facturaciones> facturaciones { get; set; } = new List<Facturaciones>();
+    public List<MetodoPagos> metodosPagos { get; set; } = new List<MetodoPagos>();
+    public Configuraciones configuracion { get; set; } = new Configuraciones();
+    public List<Productos> productos { get; set; } = new List<Productos>();
+    public bool factura { get; set; } = false;
+    public bool eliminar { get; set; } = false;
+
+    public DateTime FechaInicio { get; set; } = DateTime.Today;
+    public DateTime FechaFin { get; set; } = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        facturaciones = await facturacionesService.GetAllObject();
+        metodosPagos = await metodosPagosService.GetAllObject();
+        var conf = await configuracionesService.GetAllObject();
+        configuracion = conf.FirstOrDefault()!;
+        productos = await productosService.GetAllObject();
+    }
+
+    public async Task Buscar()
+    {
+        if (Opcion == 1 && facturacion.FacturacionId > 0)
+        {
+            var facaux1 = await facturacionesService.GetAllObject();
+            facturaciones = facaux1.Where(v => v.FacturacionId == facturacion.FacturacionId).ToList();
+        }
+        else if (Opcion == 2 && !string.IsNullOrEmpty(facturacion.NombreCliente))
+        {
+            var facaux2 = await facturacionesService.GetAllObject();
+            facturaciones = facaux2.Where(v => v.NombreCliente!.ToLower().Contains(facturacion.NombreCliente!.ToLower())).ToList();
+        }
+        else if (Opcion == 3 && facturacion.Total > 0)
+        {
+            var facaux3 = await facturacionesService.GetAllObject();
+            facturaciones = facaux3.Where(v => v.Total == facturacion.Total).ToList();
+        }
+        else if (Opcion == 4)
+            facturaciones = await facturacionesService.GetAllObject();
+    }
+
+    public async Task FiltraFecha()
+    {
+        await Buscar();
+        facturaciones = facturaciones.Where(v => v.Fecha.Date <= FechaFin.Date && v.Fecha.Date >= FechaInicio.Date).ToList();
+    }
+
+    public async Task VerFactura(int id)
+    {
+        facturacion = await facturacionesService.GetObject(id);
+        factura = true;
+    }
+
+    public async Task ImprimirFactura()
+    {
+        factura = false;
+        await JSRuntime.InvokeVoidAsync("ImprimirF");
+    }
+
+    public void CerrarModal()
+    {
+        factura = false;
+        eliminar = false;
+    }
+
+    public async Task Eliminar(int id)
+    {
+        eliminar = true;
+        facturacion = facturacion = await facturacionesService.GetObject(id);
+    }
+
+    public async Task EliminarVenta()
+    {
+        await ActualizarCantidadProducto(facturacion.FacturacionDetalle);
+        facturacion.Eliminada = true;
+        await facturacionesService.UpdateObject(facturacion);
+        eliminar = false;
+        var mensaje = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "Venta eliminada",
+                Detail = "La venta ha sido eliminada correctamente",
+                Duration = 5000
+            };
+        notificationService.Notify(mensaje);
+        facturaciones = await facturacionesService.GetAllObject();
+    }
+
+    public async Task ActualizarCantidadProducto(ICollection<FacturacionDetalle> detalle)
+    {
+        foreach (var item in detalle)
+        {
+            var producto = await productosService.GetObject(item.ProductoId);
+            if (producto != null)
+            {
+                if (producto.Cantidad > 0)
+                    producto.EsDisponible = true;
+                producto.Cantidad += item.Cantidad;
+                await productosService.UpdateObject(producto);
+            }
+        }
+    }
+
+    public string getLogo()
+    {
+        if (configuracion.Imagen != null && configuracion.Imagen.Length > 0)
+        {
+            string base64String = Convert.ToBase64String(configuracion.Imagen);
+            return $"data:image/png;base64,{base64String}";
+        }
+        else
+        {
+            return "/bootstrap/img/ejemplo.png";
+        }
+    }
+}

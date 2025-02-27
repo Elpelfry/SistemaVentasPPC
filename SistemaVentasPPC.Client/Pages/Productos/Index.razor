@@ -1,0 +1,228 @@
+﻿@page "/Productos"
+
+@inject NavigationManager NavigationManager
+@inject NotificationService notificationService
+@inject IClientService<Productos> productoService
+@rendermode InteractiveWebAssembly
+<RadzenNotification />
+<PageTitle>Inventario</PageTitle>
+
+<div class="container">
+    <div class="card shadow-lg" style="background-image: linear-gradient(to top, #30cfd0 0%, #330867 100%);">
+        <h3 class="fw-bold text-center text-white" style="margin-top: 20px;">Inventario</h3>
+        <div class="card-body">
+            <div class="container">
+                <div style="margin-left: 4px;">
+                    <div class="row">
+                        <label class="text-white fw-bold">Filtrar por:</label>
+                        <div class="col-2">
+                            <InputSelect @bind-Value="Opcion" class="form-select">
+                                <option value="1">Id</option>
+                                <option value="2">Nombre</option>
+                                <option value="3">Todo</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-auto">
+                            @switch (Opcion)
+                            {
+                                case 1:
+                                    <div class="input-group justify-content-end">
+                                        <InputNumber @bind-Value="producto.ProductoId" class="form-control" min="0"></InputNumber>
+                                        <div class="input-group-append">
+                                            <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                        </div>
+                                    </div>
+                                    break;
+                                case 2:
+                                    <div class="input-group justify-content-end">
+                                        <InputText @bind-Value="producto.Nombre" class="form-control"></InputText>
+                                        <div class="input-group-append">
+                                            <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                        </div>
+                                    </div>
+                                    break;
+
+                                case 3:
+                                    <div class="input-group justify-content-end">
+                                        <div class="input-group-append">
+                                            <button class="btn bi bi-search" @onclick="Buscar" style="background-color: #FF6969; color:white;"></button>
+                                        </div>
+                                    </div>
+                                    break;
+                            }
+                        </div>
+                        <div class="col text-end">
+                            <div class="col-auto">
+                                <a href="/Create" class="btn bi bi-file-earmark-diff-fill text-white" style="background-color: #1AACAC;"> Crear</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style=" margin-left:5px; margin-right:5px;">
+            <table class="table table-light table-hover table-striped table-bordered text-center">
+                <thead>
+                    <tr class="text-center">
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Descuento</th>
+                        <th>ITBIS</th>
+                        <th>Cantidad</th>
+                        <th>Disponible</th>
+                        <th>Editar</th>
+                        <th>Eliminar</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var producto in listaproductos)
+                    {
+                        <tr class="text-center">
+                            <td>@producto.Nombre</td>
+                            <td>@producto.Precio.ToString("N2")</td>
+                            @if (@producto.Descuento == 0)
+                            {
+
+                                <td>@producto.Descuento%</td>
+                            }
+                            else
+                            {
+                                <td>@producto.Descuento.ToString("D2")%</td>
+                            }
+                            @if (@producto.ITBIS == 0)
+                            {
+
+                                <td>@producto.ITBIS%</td>
+                            }
+                            else
+                            {
+                                <td>@producto.ITBIS.ToString("D2")%</td>
+                            }
+                            
+                            <td>@producto.Cantidad</td>
+                            @if (!producto.EsDisponible)
+                            {
+                                <td><span class="badge bg-danger">No Disponible</span></td>
+                            }
+                            else
+                            {
+                                <td><span class="badge bg-success">Disponible</span></td>
+                            }
+                            <td class="text-center">
+                                <button type="button" class="btn btn-primary bi bi-pencil" @onclick="()=> Editar(producto.ProductoId)"></button>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-danger bi bi-trash-fill" @onclick="()=> Eliminar(producto.ProductoId)"></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (eliminar)
+{
+    <div class="modal d-block" style="position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);">
+        <div class="modal-dialog modal-dialog-centered">
+            <RadzenNotification />
+            <div class="modal-content">
+                <div class="modal-header text-center" style="background:#01204E;">
+                    <h5 class="modal-title fw-bold text-white">Eliminar</h5>
+                </div>
+                <div class="modal-body text-center">
+                    <h6>¿ESTAS SEGURO QUE DESEAS ELIMINAR EL PRODUCTO?</h6>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-danger fw-bold text-light" @onclick="EliminarVenta">Eliminar</button>
+                    <button type="button" class="btn btn-secondary fw-bold text-light" @onclick="CerrarModal">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    public List<Productos> listaproductos { get; set; } = new List<Productos>();
+    public Productos producto { get; set; } = new Productos();
+    public string? filtro { get; set; }
+    public string? mensaje { get; set; }
+    public string? valorFiltro { get; set; }
+    public int Opcion { get; set; } = 1;
+    public bool eliminar { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        listaproductos = await productoService.GetAllObject();
+    }
+
+
+    public void AbrirModal()
+    {
+        NavigationManager.NavigateTo("/CrearProducto");
+    }
+
+
+    public async Task Buscar()
+    {
+        if (Opcion == 1 && producto.ProductoId > 0)
+        {
+            var facaux1 = await productoService.GetAllObject();
+            listaproductos = facaux1.Where(v => v.ProductoId == producto.ProductoId).ToList();
+        }
+        else if (Opcion == 2 && !string.IsNullOrEmpty(producto.Nombre))
+        {
+            var facaux2 = await productoService.GetAllObject();
+            listaproductos = facaux2.Where(v => v.Nombre!.ToLower().Contains(producto.Nombre!.ToLower())).ToList();
+        }
+
+        else if (Opcion == 3)
+            listaproductos = await productoService.GetAllObject();
+    }
+
+    void Editar(int ProductoId)
+    {
+        NavigationManager.NavigateTo($"/Update/{ProductoId}");
+    }
+
+    public async Task Eliminar(int ProductoId)
+    {
+        producto = await productoService.GetObject(ProductoId);
+        eliminar = true;
+    }
+    private void CerrarModal() => eliminar = false;
+    private async Task EliminarVenta()
+    {
+        var buscado = await productoService.DeleteObject(producto.ProductoId);
+        if (buscado)
+        {
+            var mensaje = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Producto Eliminado",
+                    Detail = "El producto ha sido eliminado correctamente",
+                    Duration = 4000
+                };
+            notificationService.Notify(mensaje);
+            listaproductos = await productoService.GetAllObject();
+            eliminar = false;
+        }
+        else
+        {
+            var mensaje = new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Error",
+                    Detail = "No se pudo eliminar el producto",
+                    Duration = 4000
+                };
+            notificationService.Notify(mensaje);
+        }
+    }
+}
