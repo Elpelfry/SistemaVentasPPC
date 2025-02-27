@@ -33,4 +33,10 @@
     <None Include="wwwroot\Printfactura.js" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Data\PuntoVenta.Db">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
